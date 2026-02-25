@@ -1,4 +1,4 @@
-use crate::source::{Fps, Source};
+use crate::source::{Fps, Source, DEFAULT_FPS};
 use crate::{BinResult, SrcPath};
 use gifski::{Collector, Settings};
 use imgref::*;
@@ -31,7 +31,7 @@ impl FfmpegDecoder {
         };
 
         // take fps override into account
-        let filter_fps = rate.fps / rate.speed;
+        let filter_fps = rate.fps.unwrap_or(DEFAULT_FPS) / rate.speed;
         let stream = input_context.streams().best(ffmpeg::media::Type::Video).ok_or("The file has no video tracks")?;
         let time_base = stream.time_base().numerator() as f64 / stream.time_base().denominator() as f64;
         let frames = (stream.duration() as f64 * time_base * filter_fps as f64).ceil() as u64;
@@ -41,7 +41,7 @@ impl FfmpegDecoder {
     #[inline(never)]
     pub fn collect_frames(&mut self, dest: &mut Collector) -> BinResult<()> {
         let (stream_index, mut decoder, mut filter) = {
-            let filter_fps = self.rate.fps / self.rate.speed;
+            let filter_fps = self.rate.fps.unwrap_or(DEFAULT_FPS) / self.rate.speed;
             let stream = self.input_context.streams().best(ffmpeg::media::Type::Video).ok_or("The file has no video tracks")?;
 
             let mut codec_context = ffmpeg::codec::context::Context::new();
@@ -88,7 +88,7 @@ impl FfmpegDecoder {
         let mut filt_frame = ffmpeg::util::frame::Video::empty();
         let mut i = 0;
         let mut pts_last_packet = 0;
-        let pts_frame_step = 1.0 / self.rate.fps as f64;
+        let pts_frame_step = 1.0 / self.rate.fps.unwrap_or(DEFAULT_FPS) as f64;
 
         let packets = self.input_context.packets().filter_map(|(s, packet)| {
             if s.index() != stream_index {
